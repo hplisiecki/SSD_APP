@@ -254,3 +254,13 @@ If you use SSD in your research, please cite:
 This project is licensed under the [MIT License](LICENSE).
 
 Some dependencies are distributed under the LGPL — see the [LICENSES/](LICENSES/) directory for details.
+
+## Questions / Contributions
+- File issues and feature requests on the repo’s Issues page.
+- Pull requests welcome — especially for:
+  - Documentation improvements
+
+Contact: hplisiecki@gmail.com
+
+Project was funded by the National Science Centre, Poland (grant no. 2020/38/E/HS6/00302).
+
