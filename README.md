@@ -6,7 +6,7 @@
   </picture>
 </p>
 
-<h1 align="center">SSDiff GUI</h1>
+<h1 align="center">SSD</h1>
 
 <p align="center">A desktop application for <b>Supervised Semantic Differential (SSD)</b> analysis.</p>
 
