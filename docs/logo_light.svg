@@ -62,9 +62,6 @@
 
   <!-- Front segment (on top of sphere) -->
   <line x1="204.0" y1="80.5" x2="226.8" y2="66.3"
-        stroke="url(#ssd-grad)" stroke-width="32" stroke-linecap="round"
-        stroke-opacity="0.25" filter="url(#line-glow)"/>
-  <line x1="204.0" y1="80.5" x2="226.8" y2="66.3"
         stroke="url(#ssd-grad)" stroke-width="10.0" stroke-linecap="round"
         stroke-opacity="0.90"/>
 
