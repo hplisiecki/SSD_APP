@@ -1,0 +1,35 @@
+# Build artifacts
+build/
+dist/
+build_spec.spec
+*.pyc
+__pycache__/
+*.so
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+.claude/
+*.iml
+
+# Development notes (not for publication)
+claude_notes/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# Large binary files
+*.kv
+*.bin
+*.vec
+*.pkl
+*.gz
