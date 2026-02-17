@@ -18,16 +18,31 @@ block_cipher = None
 # Get the directory containing this spec file
 SPEC_DIR = Path(SPECPATH) if 'SPECPATH' in dir() else Path('.')
 
-# Collect MKL and runtime DLLs required by numpy/scipy (Anaconda)
+# Collect MKL and runtime DLLs required by numpy/scipy (Anaconda, Windows only)
 mkl_binaries = []
-for mkl_dir in [
-    Path(sys.prefix) / 'Library' / 'bin',
-    Path(sys.prefix) / 'DLLs',
-]:
-    if mkl_dir.exists():
-        for pattern in ['mkl*.dll', 'libiomp*.dll', 'libblas*.dll', 'liblapack*.dll', 'vcomp*.dll']:
-            for dll in mkl_dir.glob(pattern):
-                mkl_binaries.append((str(dll), '.'))
+if sys.platform == 'win32':
+    for mkl_dir in [
+        Path(sys.prefix) / 'Library' / 'bin',
+        Path(sys.prefix) / 'DLLs',
+    ]:
+        if mkl_dir.exists():
+            for pattern in ['mkl*.dll', 'libiomp*.dll', 'libblas*.dll', 'liblapack*.dll', 'vcomp*.dll']:
+                for dll in mkl_dir.glob(pattern):
+                    mkl_binaries.append((str(dll), '.'))
+
+# Icon: .ico on Windows, .icns on macOS, None on Linux
+if sys.platform == 'win32':
+    app_icon = 'ssdiff_gui/resources/icon.ico'
+elif sys.platform == 'darwin':
+    app_icon = 'ssdiff_gui/resources/icon.icns'
+else:
+    app_icon = None
+
+# Windows-only Analysis kwargs
+analysis_kwargs = {}
+if sys.platform == 'win32':
+    analysis_kwargs['win_no_prefer_redirects'] = False
+    analysis_kwargs['win_private_assemblies'] = False
 
 a = Analysis(
     ['ssdiff_gui/main.py'],
@@ -130,10 +145,9 @@ a = Analysis(
         'zmq',
         'pygame',
     ],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
+    **analysis_kwargs,
 )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
@@ -148,15 +162,28 @@ exe = EXE(
     name='SSD',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=False,
+    strip=(sys.platform != 'win32'),
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,
-    argv_emulation=False,
+    argv_emulation=(sys.platform == 'darwin'),
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='ssdiff_gui/resources/icon.ico',
+    icon=app_icon,
 )
+
+# macOS: create .app bundle
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        exe,
+        name='SSD.app',
+        icon=app_icon,
+        bundle_identifier='com.ssd.app',
+        info_plist={
+            'CFBundleShortVersionString': '1.0.0',
+            'NSHighResolutionCapable': True,
+        },
+    )

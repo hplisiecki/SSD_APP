@@ -262,6 +262,7 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
 
         settings_action = QAction("&Settings...", self)
+        settings_action.setMenuRole(QAction.PreferencesRole)
         settings_action.triggered.connect(self._open_settings_dialog)
         file_menu.addAction(settings_action)
 
@@ -272,6 +273,7 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
 
         exit_action = QAction("E&xit", self)
+        exit_action.setMenuRole(QAction.QuitRole)
         exit_action.setShortcut(QKeySequence.Quit)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
@@ -306,6 +308,7 @@ class MainWindow(QMainWindow):
         help_menu.addSeparator()
 
         about_action = QAction("&About", self)
+        about_action.setMenuRole(QAction.AboutRole)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
 

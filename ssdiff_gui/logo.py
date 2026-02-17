@@ -359,3 +359,72 @@ def create_logo_pixmap(
 ):
     """Render the logo to a single QPixmap at *size* px."""
     return _render_to_pixmap(palette, theme_name, size)
+
+
+# ------------------------------------------------------------------
+#  ICNS generation  (macOS app icon)
+# ------------------------------------------------------------------
+
+def generate_icns(
+    out_path: str | None = None,
+    palette: "ThemePalette | None" = None,
+    theme_name: str = "Midnight",
+) -> str:
+    """Render the logo at standard ICNS sizes and write a .icns file.
+
+    Uses the QPainter path (no external tools required).
+    Returns the path to the written file.
+
+    Must be called with a running QApplication.
+    """
+    import struct
+    from pathlib import Path as _Path
+    from PySide6.QtCore import Qt, QBuffer, QIODevice
+    from PySide6.QtGui import QPixmap, QPainter, QImage
+
+    if palette is None:
+        from .theme import ThemePalette
+        palette = ThemePalette()  # default Midnight palette
+
+    if out_path is None:
+        out_path = str(
+            _Path(__file__).resolve().parent / "resources" / "icon.icns"
+        )
+
+    # ICNS icon types: (ostype, pixel_size)
+    icon_types = [
+        (b"icp4", 16),
+        (b"icp5", 32),
+        (b"ic07", 128),
+        (b"ic08", 256),
+        (b"ic09", 512),
+    ]
+
+    entries: list[bytes] = []
+    for ostype, sz in icon_types:
+        pixmap = QPixmap(sz, sz)
+        pixmap.fill(Qt.transparent)
+        p = QPainter(pixmap)
+        paint_logo(p, sz, palette, theme_name, draw_bg=False, content_scale=1.2)
+        p.end()
+
+        # Convert to PNG bytes
+        buf = QBuffer()
+        buf.open(QIODevice.WriteOnly)
+        pixmap.save(buf, "PNG")
+        png_data = bytes(buf.data())
+        buf.close()
+
+        # ICNS entry: 4-byte type + 4-byte length (includes header) + data
+        entry_len = 8 + len(png_data)
+        entries.append(ostype + struct.pack(">I", entry_len) + png_data)
+
+    # ICNS file: 4-byte magic + 4-byte total length + entries
+    body = b"".join(entries)
+    total_len = 8 + len(body)
+    icns_data = b"icns" + struct.pack(">I", total_len) + body
+
+    with open(out_path, "wb") as f:
+        f.write(icns_data)
+
+    return out_path

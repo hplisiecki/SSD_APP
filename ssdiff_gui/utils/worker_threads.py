@@ -4,17 +4,25 @@ from PySide6.QtCore import QThread, Signal
 from typing import List, Dict, Any, Optional, Union
 from pathlib import Path
 import os
+import sys
 
 
 def get_spacy_models_dir() -> Path:
     """Return the directory for locally-downloaded spaCy models.
 
-    Uses ``%LOCALAPPDATA%/SSD/spacy_models`` on Windows, falling back
-    to ``~/.local/share/SSD/spacy_models`` on other platforms.
+    Uses platform-appropriate data directories:
+    - Windows: ``%LOCALAPPDATA%/SSD/spacy_models``
+    - macOS:   ``~/Library/Application Support/SSD/spacy_models``
+    - Linux:   ``~/.local/share/SSD/spacy_models``
     """
-    local_appdata = os.environ.get("LOCALAPPDATA")
-    if local_appdata:
-        base = Path(local_appdata) / "SSD"
+    if sys.platform == "win32":
+        local_appdata = os.environ.get("LOCALAPPDATA")
+        if local_appdata:
+            base = Path(local_appdata) / "SSD"
+        else:
+            base = Path.home() / "AppData" / "Local" / "SSD"
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support" / "SSD"
     else:
         base = Path.home() / ".local" / "share" / "SSD"
     models_dir = base / "spacy_models"
