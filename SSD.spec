@@ -12,6 +12,7 @@ Requires:
 import sys
 import glob
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_all, collect_data_files
 
 block_cipher = None
 
@@ -37,6 +38,21 @@ if sys.platform == 'linux':
         for lib in (Path(sys.prefix) / 'lib').glob(pattern):
             mkl_binaries.append((str(lib), '.'))
 
+# Collect data files for NLP packages that ship dictionaries/lookup tables
+nlp_datas = []
+nlp_datas += collect_data_files('spacy_lookups_data')
+nlp_datas += collect_data_files('jieba')
+nlp_datas += collect_data_files('sudachidict_core')
+
+# Collect full package (modules + native .so + data) for packages with Cython extensions
+nlp_binaries = []
+nlp_hiddenimports = []
+for _pkg in ['sudachipy', 'spacy_pkuseg']:
+    _d, _b, _h = collect_all(_pkg)
+    nlp_datas += _d
+    nlp_binaries += _b
+    nlp_hiddenimports += _h
+
 # Icon: .ico on Windows, .icns on macOS, None on Linux
 if sys.platform == 'win32':
     app_icon = 'ssdiff_gui/resources/icon.ico'
@@ -54,11 +70,11 @@ if sys.platform == 'win32':
 a = Analysis(
     ['ssdiff_gui/main.py'],
     pathex=[str(SPEC_DIR)],
-    binaries=mkl_binaries,
+    binaries=mkl_binaries + nlp_binaries,
     datas=[
         # Include resources folder if it exists
         ('ssdiff_gui/resources', 'resources'),
-    ],
+    ] + nlp_datas,
     hiddenimports=[
         # Core packages
         'ssdiff',
@@ -98,8 +114,15 @@ a = Analysis(
         'gensim.models.keyedvectors',
         'spacy',
 
+        # NLP lookup data
+        'spacy_lookups_data',
+
         # Asian language tokenizer backends
-        'spacy_pkuseg',       # Chinese
+        'spacy_pkuseg',       # Chinese (pkuseg)
+        'jieba',              # Chinese (jieba)
+        'jieba.analyse',
+        'jieba.finalseg',
+        'jieba.posseg',
         'sudachipy',          # Japanese
         'sudachidict_core',   # Japanese
 
