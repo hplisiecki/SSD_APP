@@ -25,6 +25,7 @@ Thumbs.db
 *$py.class
 venv/
 env/
+build_env/
 .env
 
 # Large binary files
