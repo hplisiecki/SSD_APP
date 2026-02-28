@@ -67,6 +67,9 @@ class ProgressDialog(QDialog):
         self._elapsed = QElapsedTimer()
         self._current_reading_ms = 0
 
+        from ssdiff_gui.theme import build_current_palette
+        self._palette = build_current_palette()
+
         self._setup_ui()
         self._compute_max_quote_height()
         self._show_next_quote()
@@ -98,7 +101,7 @@ class ProgressDialog(QDialog):
         separator.setFrameShape(QFrame.HLine)
         separator.setObjectName("quote_separator")
         separator.setStyleSheet(
-            "QFrame#quote_separator { color: rgba(255,255,255,0.06); }"
+            f"QFrame#quote_separator {{ color: {self._palette.border}; }}"
         )
         layout.addSpacing(4)
         layout.addWidget(separator)
@@ -113,23 +116,23 @@ class ProgressDialog(QDialog):
             self.quote_label.sizePolicy().verticalPolicy(),
         )
         self.quote_label.setStyleSheet(
-            "QLabel {"
-            "  font-style: italic;"
-            "  color: rgba(228,228,240,0.70);"
-            "  padding: 6px 16px 2px 16px;"
-            "  font-size: 15px;"
-            "}"
+            f"QLabel {{"
+            f"  font-style: italic;"
+            f"  color: {self._palette.text_secondary};"
+            f"  padding: 6px 16px 2px 16px;"
+            f"  font-size: {self._palette.font_size_md};"
+            f"}}"
         )
         layout.addWidget(self.quote_label)
 
         self.author_label = QLabel("")
         self.author_label.setAlignment(Qt.AlignCenter)
         self.author_label.setStyleSheet(
-            "QLabel {"
-            "  color: rgba(156,156,180,0.80);"
-            "  padding: 0 16px 4px 16px;"
-            "  font-size: 13px;"
-            "}"
+            f"QLabel {{"
+            f"  color: {self._palette.text_muted};"
+            f"  padding: 0 16px 4px 16px;"
+            f"  font-size: {self._palette.font_size_base};"
+            f"}}"
         )
         layout.addWidget(self.author_label)
 
@@ -349,16 +352,17 @@ class ProgressDialog(QDialog):
             error_text = QPlainTextEdit(message)
             error_text.setReadOnly(True)
             error_text.setMaximumHeight(200)
+            p = self._palette
             error_text.setStyleSheet(
-                "QPlainTextEdit {"
-                "  background: rgba(0,0,0,0.3);"
-                "  color: rgba(228,228,240,0.85);"
-                "  font-family: 'Consolas', 'Courier New', monospace;"
-                "  font-size: 12px;"
-                "  border: 1px solid rgba(255,255,255,0.08);"
-                "  border-radius: 4px;"
-                "  padding: 6px;"
-                "}"
+                f"QPlainTextEdit {{"
+                f"  background: {p.bg_input};"
+                f"  color: {p.text_primary};"
+                f"  font-family: 'Consolas', 'Courier New', monospace;"
+                f"  font-size: 12px;"
+                f"  border: 1px solid {p.border};"
+                f"  border-radius: 4px;"
+                f"  padding: 6px;"
+                f"}}"
             )
             # Insert before the button layout (last item in the main layout)
             self.layout().insertWidget(self.layout().count() - 1, error_text)

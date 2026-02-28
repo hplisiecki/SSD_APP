@@ -14,6 +14,7 @@ from datetime import datetime
 class DatasetConfig:
     """Configuration for the loaded dataset."""
     csv_path: Optional[Path] = None
+    csv_encoding: str = "utf-8-sig"
     text_column: Optional[str] = None
     outcome_column: Optional[str] = None
     id_column: Optional[str] = None
@@ -31,6 +32,7 @@ class DatasetConfig:
         """Convert to JSON-serializable dict."""
         return {
             "csv_path": str(self.csv_path) if self.csv_path else None,
+            "csv_encoding": self.csv_encoding,
             "text_column": self.text_column,
             "outcome_column": self.outcome_column,
             "id_column": self.id_column,
@@ -48,6 +50,7 @@ class DatasetConfig:
         """Create from dict."""
         return cls(
             csv_path=Path(d["csv_path"]) if d.get("csv_path") else None,
+            csv_encoding=d.get("csv_encoding", "utf-8-sig"),
             text_column=d.get("text_column"),
             outcome_column=d.get("outcome_column"),
             id_column=d.get("id_column"),

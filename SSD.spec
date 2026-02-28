@@ -108,6 +108,21 @@ a = Analysis(
         # Export
         'docx',
 
+        # Networking (used by ssdiff.preprocess for spaCy model downloads)
+        'requests',
+        'requests.adapters',
+        'requests.auth',
+        'requests.exceptions',
+        'certifi',
+        'charset_normalizer',
+        'idna',
+        'urllib3',
+        'urllib3.util',
+
+        # Threading
+        'concurrent.futures',
+        'concurrent.futures.thread',
+
         # Standard library that might be missed
         'pickle',
         'json',
@@ -183,7 +198,7 @@ if sys.platform == 'darwin':
         icon=app_icon,
         bundle_identifier='com.ssd.app',
         info_plist={
-            'CFBundleShortVersionString': '1.0.0',
+            'CFBundleShortVersionString': '1.1.0',
             'NSHighResolutionCapable': True,
         },
     )

@@ -40,88 +40,7 @@ from ..utils.file_io import ProjectIO
 from .widgets.collapsible_box import CollapsibleBox
 from .widgets.progress_dialog import ProgressDialog
 from .widgets.info_button import InfoButton
-
-
-class _RemovableItemDelegate(QStyledItemDelegate):
-    """Delegate that paints an X button on hovered combo-box items."""
-
-    _X_SIZE = 16  # clickable region width/height
-
-    def __init__(self, combo: QComboBox, on_remove, parent=None):
-        super().__init__(parent)
-        self._combo = combo
-        self._on_remove = on_remove
-        self._hovered_row = -1
-
-        view = combo.view()
-        view.setMouseTracking(True)
-        view.viewport().setMouseTracking(True)
-        view.viewport().installEventFilter(self)
-
-    # -- painting ----------------------------------------------------------
-
-    def paint(self, painter, option, index):
-        super().paint(painter, option, index)
-
-        # Only draw X when this row is hovered
-        if index.row() != self._hovered_row:
-            return
-        # Don't draw on disabled placeholder items
-        if not (index.flags() & Qt.ItemIsEnabled):
-            return
-
-        painter.save()
-        x_rect = self._x_rect(option.rect)
-        painter.setPen(QPen(QColor("#8e8ea0"), 1.5))
-        margin = 4
-        painter.drawLine(
-            x_rect.left() + margin, x_rect.top() + margin,
-            x_rect.right() - margin, x_rect.bottom() - margin,
-        )
-        painter.drawLine(
-            x_rect.right() - margin, x_rect.top() + margin,
-            x_rect.left() + margin, x_rect.bottom() - margin,
-        )
-        painter.restore()
-
-    def sizeHint(self, option, index):
-        hint = super().sizeHint(option, index)
-        return QSize(hint.width() + self._X_SIZE + 4, max(hint.height(), self._X_SIZE + 4))
-
-    # -- event filter for hover & click ------------------------------------
-
-    def eventFilter(self, obj, event):
-        if obj is self._combo.view().viewport():
-            if event.type() == QEvent.MouseMove:
-                idx = self._combo.view().indexAt(event.pos())
-                row = idx.row() if idx.isValid() else -1
-                if row != self._hovered_row:
-                    self._hovered_row = row
-                    self._combo.view().viewport().update()
-            elif event.type() == QEvent.Leave:
-                self._hovered_row = -1
-                self._combo.view().viewport().update()
-            elif event.type() == QEvent.MouseButtonRelease:
-                idx = self._combo.view().indexAt(event.pos())
-                if idx.isValid() and idx.row() == self._hovered_row:
-                    vis_rect = self._combo.view().visualRect(idx)
-                    x_rect = self._x_rect(vis_rect)
-                    if x_rect.contains(event.pos()):
-                        self._on_remove(idx.row())
-                        return True
-        return super().eventFilter(obj, event)
-
-    # -- helpers -----------------------------------------------------------
-
-    @classmethod
-    def _x_rect(cls, item_rect: QRect) -> QRect:
-        """Return the clickable X region on the right side of the row."""
-        return QRect(
-            item_rect.right() - cls._X_SIZE - 4,
-            item_rect.center().y() - cls._X_SIZE // 2,
-            cls._X_SIZE,
-            cls._X_SIZE,
-        )
+from .widgets.removable_delegate import RemovableItemDelegate as _RemovableItemDelegate
 
 
 class Stage1Widget(QWidget):
@@ -235,12 +154,29 @@ class Stage1Widget(QWidget):
         browse_btn.clicked.connect(self._browse_csv)
         file_row.addWidget(browse_btn)
 
+        layout.addLayout(file_row)
+
+        # Encoding row
+        enc_row = QHBoxLayout()
+        enc_row.addWidget(QLabel("Encoding:"))
+        self.encoding_combo = QComboBox()
+        for label, value in [
+            ("UTF-8", "utf-8-sig"),
+            ("Latin-1 / ISO-8859-1", "latin-1"),
+            ("CP1252 (Windows)", "cp1252"),
+            ("UTF-16", "utf-16"),
+        ]:
+            self.encoding_combo.addItem(label, userData=value)
+        self.encoding_combo.setFixedWidth(180)
+        enc_row.addWidget(self.encoding_combo)
+        enc_row.addStretch()
+
         load_btn = QPushButton("Load")
         load_btn.clicked.connect(self._load_csv)
-        file_row.addWidget(load_btn)
+        enc_row.addWidget(load_btn)
         self.load_csv_btn = load_btn
 
-        layout.addLayout(file_row)
+        layout.addLayout(enc_row)
 
         # Column selection
         cols_layout = QHBoxLayout()
@@ -290,6 +226,11 @@ class Stage1Widget(QWidget):
             "into a single profile.<br>"
             "<b>Outcome / Group Column</b> — the dependent variable "
             "(continuous or categorical).<br><br>"
+            "<b>Encoding</b> — the character encoding of your CSV/TSV file. "
+            "Use <i>UTF-8</i> for most files. If you see garbled characters "
+            "or a load error, try <i>Latin-1</i> (common for Western-European "
+            "survey exports) or <i>CP1252</i> (common for files exported from "
+            "Excel on Windows). Encoding is ignored for Excel files.<br><br>"
             "Click <b>Validate</b> to check for missing values and confirm "
             "the dataset is ready.",
         )
@@ -1104,13 +1045,14 @@ class Stage1Widget(QWidget):
 
         try:
             ext = Path(filepath).suffix.lower()
+            encoding = self.encoding_combo.currentData()
 
             if ext in (".xlsx", ".xls"):
                 self._df = pd.read_excel(filepath)
             elif ext == ".tsv":
-                self._df = pd.read_csv(filepath, sep="\t")
+                self._df = pd.read_csv(filepath, sep="\t", encoding=encoding)
             else:
-                self._df = pd.read_csv(filepath)
+                self._df = pd.read_csv(filepath, encoding=encoding)
 
             # Populate column combos
             columns = self._df.columns.tolist()
@@ -1202,6 +1144,7 @@ class Stage1Widget(QWidget):
         # Store validated columns
         if self.project:
             self.project.dataset_config.csv_path = Path(self.file_path_edit.text())
+            self.project.dataset_config.csv_encoding = self.encoding_combo.currentData()
             self.project.dataset_config.text_column = text_col
             self.project.dataset_config.id_column = id_col
             self.project.dataset_config.n_rows = len(self._df)
@@ -1650,16 +1593,24 @@ class Stage1Widget(QWidget):
         if project.dataset_config.csv_path:
             self.file_path_edit.setText(str(project.dataset_config.csv_path))
 
+            # Restore encoding selection
+            saved_enc = project.dataset_config.csv_encoding
+            for i in range(self.encoding_combo.count()):
+                if self.encoding_combo.itemData(i) == saved_enc:
+                    self.encoding_combo.setCurrentIndex(i)
+                    break
+
             try:
                 csv_path = project.dataset_config.csv_path
                 if csv_path.exists():
                     ext = csv_path.suffix.lower()
+                    encoding = self.encoding_combo.currentData()
                     if ext in (".xlsx", ".xls"):
                         self._df = pd.read_excel(csv_path)
                     elif ext == ".tsv":
-                        self._df = pd.read_csv(csv_path, sep="\t")
+                        self._df = pd.read_csv(csv_path, sep="\t", encoding=encoding)
                     else:
-                        self._df = pd.read_csv(csv_path)
+                        self._df = pd.read_csv(csv_path, encoding=encoding)
                     project._cached_df = self._df
 
                     columns = self._df.columns.tolist()

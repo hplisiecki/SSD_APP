@@ -271,6 +271,94 @@ SLATE_PALETTE = ThemePalette(
     disabled_text="#505860",
 )
 
+# Crisp  — light mode, near-white with deep navy accent
+CRISP_PALETTE = ThemePalette(
+    bg_base="#F0F0F0",
+    bg_surface="#E8E8E8",
+    bg_card="#FFFFFF",
+    bg_input="#FFFFFF",
+    bg_hover="#E0E0E0",
+    bg_elevated="#ECECEC",
+
+    border="#C0C0C0",
+    border_subtle="#D4D4D4",
+    border_focus="#163060",
+
+    text_primary="#0A0A0A",
+    text_secondary="#3A3A3A",
+    text_muted="#686868",
+    text_on_accent="#FFFFFF",
+
+    accent="#163060",
+    accent_hover="#0E2248",
+    accent_pressed="#081830",
+    accent_muted="rgba(22,48,96,0.10)",
+
+    success="#1A5C2A",
+    success_hover="#144A22",
+    success_bg="rgba(26,92,42,0.10)",
+    success_border="#144A22",
+
+    warning="#7A5800",
+    warning_hover="#624600",
+    warning_bg="rgba(122,88,0,0.10)",
+    warning_border="#624600",
+
+    error="#8C2020",
+    error_hover="#701818",
+    error_bg="rgba(140,32,32,0.10)",
+    error_border="#701818",
+
+    selection="#B8CCE8",
+
+    disabled_bg="#E0E0E0",
+    disabled_text="#A0A0A0",
+)
+
+# Warm  — light mode, off-white parchment with dark warm navy accent
+WARM_PALETTE = ThemePalette(
+    bg_base="#EEEBE4",
+    bg_surface="#E6E2DA",
+    bg_card="#F4F1EC",
+    bg_input="#FDFAF6",
+    bg_hover="#DED9D0",
+    bg_elevated="#EAE6DF",
+
+    border="#C4BAB0",
+    border_subtle="#D4CEC6",
+    border_focus="#1A2E52",
+
+    text_primary="#141010",
+    text_secondary="#3A3230",
+    text_muted="#6A6260",
+    text_on_accent="#FFFFFF",
+
+    accent="#1A2E52",
+    accent_hover="#142444",
+    accent_pressed="#0E1A34",
+    accent_muted="rgba(26,46,82,0.10)",
+
+    success="#1E5230",
+    success_hover="#184228",
+    success_bg="rgba(30,82,48,0.10)",
+    success_border="#184228",
+
+    warning="#7A5000",
+    warning_hover="#603E00",
+    warning_bg="rgba(122,80,0,0.10)",
+    warning_border="#603E00",
+
+    error="#882020",
+    error_hover="#6C1818",
+    error_bg="rgba(136,32,32,0.10)",
+    error_border="#6C1818",
+
+    selection="#B8C8DC",
+
+    disabled_bg="#E2DED6",
+    disabled_text="#ACA89E",
+)
+
 # Ordered mapping of display name -> palette
 THEME_PRESETS: dict[str, ThemePalette] = {
     "Midnight": DARK_PALETTE,
@@ -279,6 +367,8 @@ THEME_PRESETS: dict[str, ThemePalette] = {
     "Rose": ROSE_PALETTE,
     "Amber": AMBER_PALETTE,
     "Slate": SLATE_PALETTE,
+    "Crisp": CRISP_PALETTE,
+    "Warm": WARM_PALETTE,
 }
 
 # ================================================================
@@ -645,6 +735,7 @@ QSpinBox, QDoubleSpinBox {{
     background-color: {p.bg_input};
     color: {p.text_primary};
     selection-background-color: {p.selection};
+    selection-color: {p.text_primary};
 }}
 
 QSpinBox:focus, QDoubleSpinBox:focus {{
@@ -1143,5 +1234,62 @@ QLabel#label_stat_name {{
     font-size: {p.font_size_sm};
     color: {p.text_secondary};
     font-weight: 500;
+}}
+
+/* --- Update banner --- */
+QFrame#update_banner {{
+    background-color: {p.accent_muted};
+    border-top: 1px solid {p.border_focus};
+    padding: 4px 8px;
+}}
+
+QLabel#update_banner_icon {{
+    font-size: 14px;
+    color: {p.accent};
+    background-color: transparent;
+}}
+
+QLabel#update_banner_text {{
+    color: {p.text_primary};
+    background-color: transparent;
+}}
+
+QPushButton#update_banner_download {{
+    background-color: {p.accent};
+    color: {p.text_on_accent};
+    border: none;
+    border-radius: {p.radius_sm};
+    padding: 4px 14px;
+    min-width: 0;
+    font-weight: 600;
+}}
+
+QPushButton#update_banner_download:hover {{
+    background-color: {p.accent_hover};
+}}
+
+QPushButton#update_banner_dismiss {{
+    background-color: transparent;
+    color: {p.text_muted};
+    border: 1px solid {p.border};
+    border-radius: {p.radius_sm};
+    padding: 2px;
+    min-width: 0;
+    font-weight: normal;
+}}
+
+QPushButton#update_banner_dismiss:hover {{
+    color: {p.text_primary};
+    border-color: {p.text_muted};
+}}
+
+/* Export Options dialog — required-column badges */
+QLabel#export_required_tag {{
+    background-color: {p.bg_elevated};
+    color: {p.text_muted};
+    border: 1px solid {p.border};
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: {p.font_size_sm};
 }}
 """

@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
 
+from ssdiff_gui import __version__
 from ssdiff_gui.views.main_window import MainWindow
 from ssdiff_gui.theme import generate_stylesheet, build_current_palette, get_saved_theme_name
 from ssdiff_gui.logo import create_app_icon
@@ -20,7 +21,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("SSD")
     app.setOrganizationName("SSD")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion(__version__)
 
     # Set application style
     app.setStyle("Fusion")

@@ -437,6 +437,45 @@ class SpacyDownloadWorker(QThread):
             )
 
 
+class UpdateCheckWorker(QThread):
+    """Worker thread for checking GitHub for a newer app release.
+
+    Emits ``update_available`` with (latest_version, release_html_url) when
+    a newer version is found.  Errors and "up to date" results are both
+    silent — this check must never disrupt the user's startup experience.
+    """
+
+    update_available = Signal(str, str)  # (latest_version, release_html_url)
+
+    def __init__(self, current_version: str, parent=None):
+        super().__init__(parent)
+        self.current_version = current_version
+
+    def run(self):
+        from urllib.request import urlopen, Request
+        import json
+
+        api_url = "https://api.github.com/repos/hplisiecki/SSD_APP/releases/latest"
+        try:
+            req = Request(api_url, headers={"User-Agent": "SSD-App/1.0"})
+            with urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+
+            tag = data.get("tag_name", "").lstrip("v")
+            url = data.get("html_url", "")
+
+            def parse(v):
+                try:
+                    return tuple(int(x) for x in v.split("."))
+                except ValueError:
+                    return (0,)
+
+            if parse(tag) > parse(self.current_version):
+                self.update_available.emit(tag, url)
+        except Exception:
+            pass  # silent — no internet, rate-limited, etc.
+
+
 class KvConvertWorker(QThread):
     """Worker thread for saving embeddings in .kv format."""
 

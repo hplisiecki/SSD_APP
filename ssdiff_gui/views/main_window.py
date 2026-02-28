@@ -22,8 +22,9 @@ from PySide6.QtWidgets import (
     QApplication,
 )
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtCore import Qt, Signal, QSettings
+from PySide6.QtCore import Qt, Signal, QSettings, QTimer
 
+from ssdiff_gui import __version__
 from ..models.project import Project
 from ..utils.file_io import ProjectIO
 
@@ -43,6 +44,7 @@ class MainWindow(QMainWindow):
         self._init_ui()
         self._create_menus()
         self._create_status_bar()
+        QTimer.singleShot(1000, self._start_update_check)
 
     def _init_ui(self):
         """Initialize the user interface."""
@@ -388,7 +390,7 @@ class MainWindow(QMainWindow):
 
         # Version label
         layout.addSpacing(40)
-        version_label = QLabel("v1.0.0")
+        version_label = QLabel(f"v{__version__}")
         version_label.setObjectName("label_muted")
         version_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(version_label)
@@ -798,7 +800,7 @@ class MainWindow(QMainWindow):
             "About SSD",
             "<h2>SSD</h2>"
             "<p>Supervised Semantic Differential</p>"
-            "<p>Version 1.0.0</p>"
+            f"<p>Version {__version__}</p>"
             "<p>A desktop application for running Supervised Semantic "
             "Differential analysis on text data.</p>"
             "<p>Designed for psychologists and researchers working with "
@@ -808,6 +810,20 @@ class MainWindow(QMainWindow):
             "<p><b>Contact:</b> <a href='mailto:hplisiecki@gmail.com'>hplisiecki@gmail.com</a></p>"
             "<p><b>GitHub:</b> <a href='https://github.com/hplisiecki/SSD_APP'>github.com/hplisiecki/SSD_APP</a></p>"
         )
+
+    def _start_update_check(self):
+        """Silently check GitHub for a newer release in the background."""
+        from ..utils.worker_threads import UpdateCheckWorker
+        self._update_worker = UpdateCheckWorker(__version__)
+        self._update_worker.update_available.connect(self._on_update_available)
+        self._update_worker.start()
+
+    def _on_update_available(self, version: str, url: str):
+        """Show the update banner at the bottom of the window."""
+        from .widgets.update_banner import UpdateBanner
+        banner = UpdateBanner(version, url, parent=self.centralWidget())
+        self.centralWidget().layout().addWidget(banner)
+        self._update_banner = banner
 
     def _validate_window_geometry(self) -> bool:
         """Check that the restored window is visible and fits the display.

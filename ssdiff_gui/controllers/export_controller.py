@@ -21,6 +21,23 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
 from ..models.project import Project, Run
+from ..utils.export_settings import (
+    get_export_setting,
+    KEY_TOP_WORDS,
+    KEY_CLUSTER_COS_BETA,
+    KEY_CLUSTER_COHERENCE,
+    KEY_CLUSTER_EXCERPT,
+    KEY_CONT_ADJ_R2,
+    KEY_CONT_F,
+    KEY_CONT_BETA_NORM,
+    KEY_CONT_DELTA,
+    KEY_CONT_IQR,
+    KEY_CONT_R,
+    KEY_CROSS_N_COUNTS,
+    KEY_CROSS_P_CORR,
+    KEY_CROSS_COHENS_D,
+    KEY_CROSS_CONTRAST_NORM,
+)
 
 
 # ------------------------------------------------------------------ #
@@ -164,6 +181,20 @@ def _add_section_heading(doc, text, size_pt=14):
     _set_run_font(p.add_run(text), bold=True, size_pt=size_pt)
     p.paragraph_format.space_before = Pt(12)
     p.paragraph_format.space_after = Pt(6)
+
+
+# ------------------------------------------------------------------ #
+#  Width helpers
+# ------------------------------------------------------------------ #
+
+def _scale_col_widths(base_widths: dict, selected_cols: list,
+                      available_in: float) -> dict:
+    """Return a new width dict scaled so selected columns fill available_in inches."""
+    total = sum(base_widths.get(c, 1.0) for c in selected_cols)
+    if total <= 0:
+        return {c: base_widths.get(c, 1.0) for c in selected_cols}
+    scale = available_in / total
+    return {c: base_widths.get(c, 1.0) * scale for c in selected_cols}
 
 
 # ------------------------------------------------------------------ #
@@ -330,35 +361,20 @@ class ExportController:
             title="Regression results predicting the quantitative metric from PCVs",
         )
 
-        # Columns: DV, Adj R2, F, p, beta_norm, delta_per_0.1, IQR, r
-        cols = ["DV", "Adj R\u00b2", "F", "p",
-                "\u03b2\u0302 norm", "\u0394 per 0.1", "IQR", "r"]
-
-        col_widths = {
-            "DV": 2.0,
-            "Adj R\u00b2": 0.85,
-            "F": 0.85,
-            "p": 0.85,
-            "\u03b2\u0302 norm": 1.0,
-            "\u0394 per 0.1": 1.0,
-            "IQR": 0.85,
-            "r": 0.85,
+        # Columns: DV (required), optional, p (required), optional…
+        _cont_optional = {
+            "Adj R\u00b2":      get_export_setting(KEY_CONT_ADJ_R2),
+            "F":                get_export_setting(KEY_CONT_F),
+            "\u03b2\u0302 norm": get_export_setting(KEY_CONT_BETA_NORM),
+            "\u0394 per 0.1":   get_export_setting(KEY_CONT_DELTA),
+            "IQR":              get_export_setting(KEY_CONT_IQR),
+            "r":                get_export_setting(KEY_CONT_R),
         }
+        _cont_required = {"DV", "p"}
 
-        table = doc.add_table(rows=1, cols=len(cols))
-        table.autofit = False
-        _clear_all_table_borders(table)
-
-        # Header row
-        hdr = table.rows[0].cells
-        for j, col in enumerate(cols):
-            hdr[j].width = Inches(col_widths.get(col, 1.0))
-            hdr[j].vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
-            _set_cell_no_wrap(hdr[j], True)
-            _set_cell_text(hdr[j], col, align="center", bold=True, size_pt=11)
-
-        # Data row
-        values = [
+        all_cols = ["DV", "Adj R\u00b2", "F", "p",
+                    "\u03b2\u0302 norm", "\u0394 per 0.1", "IQR", "r"]
+        all_values = [
             dv_name,
             f"{results.r2_adj:.2f}",
             f"{results.f_stat:.2f}",
@@ -368,10 +384,38 @@ class ExportController:
             f"{results.iqr_effect_raw:.2f}",
             f"{results.y_corr_pred:.2f}",
         ]
+        cols   = [c for c in all_cols   if c in _cont_required or _cont_optional.get(c, True)]
+        values = [v for c, v in zip(all_cols, all_values)
+                  if c in _cont_required or _cont_optional.get(c, True)]
 
+        _base_widths = {
+            "DV": 2.0,
+            "Adj R\u00b2": 0.85,
+            "F": 0.85,
+            "p": 0.85,
+            "\u03b2\u0302 norm": 1.0,
+            "\u0394 per 0.1": 1.0,
+            "IQR": 0.85,
+            "r": 0.85,
+        }
+        col_widths = _scale_col_widths(_base_widths, cols, 9.0)  # landscape = 9" usable
+
+        table = doc.add_table(rows=1, cols=len(cols))
+        table.autofit = False
+        _clear_all_table_borders(table)
+
+        # Header row
+        hdr = table.rows[0].cells
+        for j, col in enumerate(cols):
+            hdr[j].width = Inches(col_widths[col])
+            hdr[j].vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
+            _set_cell_no_wrap(hdr[j], True)
+            _set_cell_text(hdr[j], col, align="center", bold=True, size_pt=11)
+
+        # Data row
         row_cells = table.add_row().cells
         for j, (col, val) in enumerate(zip(cols, values)):
-            row_cells[j].width = Inches(col_widths.get(col, 1.0))
+            row_cells[j].width = Inches(col_widths[col])
             row_cells[j].vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
             align = "left" if col == "DV" else "center"
             _set_cell_text(row_cells[j], val, align=align, size_pt=11)
@@ -409,10 +453,20 @@ class ExportController:
             title="Pairwise comparison results from permutation-based group centroid tests",
         )
 
-        cols = ["Group A", "Group B", "n_A", "n_B",
-                "Cos Distance", "p", "p (corr)", "Cohen's d", "\u2016Contrast\u2016"]
+        _cross_optional = {
+            "n_A":               get_export_setting(KEY_CROSS_N_COUNTS),
+            "n_B":               get_export_setting(KEY_CROSS_N_COUNTS),
+            "p (corr)":          get_export_setting(KEY_CROSS_P_CORR),
+            "Cohen's d":         get_export_setting(KEY_CROSS_COHENS_D),
+            "\u2016Contrast\u2016": get_export_setting(KEY_CROSS_CONTRAST_NORM),
+        }
+        _cross_required = {"Group A", "Group B", "Cos Distance", "p"}
 
-        col_widths = {
+        all_cols = ["Group A", "Group B", "n_A", "n_B",
+                    "Cos Distance", "p", "p (corr)", "Cohen's d", "\u2016Contrast\u2016"]
+        cols = [c for c in all_cols if c in _cross_required or _cross_optional.get(c, True)]
+
+        _base_widths = {
             "Group A": 1.2,
             "Group B": 1.2,
             "n_A": 0.6,
@@ -423,6 +477,7 @@ class ExportController:
             "Cohen's d": 0.85,
             "\u2016Contrast\u2016": 1.0,
         }
+        col_widths = _scale_col_widths(_base_widths, cols, 9.0)  # landscape = 9" usable
 
         table = doc.add_table(rows=1, cols=len(cols))
         table.autofit = False
@@ -431,7 +486,7 @@ class ExportController:
         # Header row
         hdr = table.rows[0].cells
         for j, col in enumerate(cols):
-            hdr[j].width = Inches(col_widths.get(col, 1.0))
+            hdr[j].width = Inches(col_widths[col])
             hdr[j].vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
             _set_cell_no_wrap(hdr[j], True)
             _set_cell_text(hdr[j], col, align="center", bold=True, size_pt=11)
@@ -441,7 +496,7 @@ class ExportController:
             p_raw = pw.get("p_raw", 0)
             p_corr = pw.get("p_corrected", 0)
 
-            values = [
+            all_values = [
                 pw.get("group_A", ""),
                 pw.get("group_B", ""),
                 f"{pw.get('n_A', 0):,}",
@@ -452,10 +507,12 @@ class ExportController:
                 f"{pw.get('cohens_d', 0):.3f}",
                 f"{pw.get('contrast_norm', 0):.4f}",
             ]
+            values = [v for c, v in zip(all_cols, all_values)
+                      if c in _cross_required or _cross_optional.get(c, True)]
 
             row_cells = table.add_row().cells
             for j, (col, val) in enumerate(zip(cols, values)):
-                row_cells[j].width = Inches(col_widths.get(col, 1.0))
+                row_cells[j].width = Inches(col_widths[col])
                 row_cells[j].vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
                 align = "left" if col in ("Group A", "Group B") else "center"
                 _set_cell_text(row_cells[j], val, align=align, size_pt=11)
@@ -561,9 +618,20 @@ class ExportController:
 
         _add_table_caption(doc, table_number=table_number, title=title)
 
-        cols = ["No.", "Size", "Cos \u03b2", "Coherence", "Top Words",
-                "Representative\nExcerpt"]
-        col_widths = {
+        _cluster_optional = {
+            "Cos \u03b2":              get_export_setting(KEY_CLUSTER_COS_BETA),
+            "Coherence":               get_export_setting(KEY_CLUSTER_COHERENCE),
+            "Representative\nExcerpt": get_export_setting(KEY_CLUSTER_EXCERPT),
+        }
+        _cluster_required = {"No.", "Size", "Top Words"}
+        _top_words_limit  = get_export_setting(KEY_TOP_WORDS)
+
+        all_cluster_cols = ["No.", "Size", "Cos \u03b2", "Coherence", "Top Words",
+                            "Representative\nExcerpt"]
+        cols = [c for c in all_cluster_cols
+                if c in _cluster_required or _cluster_optional.get(c, True)]
+
+        _base_cluster_widths = {
             "No.": 0.4,
             "Size": 0.5,
             "Cos \u03b2": 0.7,
@@ -571,6 +639,7 @@ class ExportController:
             "Top Words": 1.7,
             "Representative\nExcerpt": 2.2,
         }
+        col_widths = _scale_col_widths(_base_cluster_widths, cols, 6.5)  # portrait = 6.5" usable
         no_wrap_except = {"Top Words", "Representative\nExcerpt"}
         excerpt_col = "Representative\nExcerpt"
         va = WD_CELL_VERTICAL_ALIGNMENT.CENTER
@@ -596,12 +665,18 @@ class ExportController:
             if cluster_snippets:
                 excerpt = cluster_snippets[0].get("snippet_anchor", "")
 
+            top_words = c.get("top_words", "")
+            if _top_words_limit and top_words:
+                parts = top_words.split(", ")
+                if len(parts) > _top_words_limit:
+                    top_words = ", ".join(parts[:_top_words_limit]) + " \u2026"
+
             rows.append({
                 "No.": rank,
                 "Size": c.get("size", ""),
                 "Cos \u03b2": c.get("centroid_cos_beta", ""),
                 "Coherence": c.get("coherence", ""),
-                "Top Words": c.get("top_words", ""),
+                "Top Words": top_words,
                 "Representative\nExcerpt": excerpt,
             })
 
@@ -613,7 +688,7 @@ class ExportController:
         # Header
         hdr = table.rows[0].cells
         for j, col in enumerate(cols):
-            hdr[j].width = Inches(col_widths.get(col, 1.0))
+            hdr[j].width = Inches(col_widths[col])
             hdr[j].vertical_alignment = va
             if col not in no_wrap_except:
                 _set_cell_no_wrap(hdr[j], True)
@@ -624,7 +699,7 @@ class ExportController:
             row_cells = table.add_row().cells
             for j, col in enumerate(cols):
                 val = row_data[col]
-                row_cells[j].width = Inches(col_widths.get(col, 1.0))
+                row_cells[j].width = Inches(col_widths[col])
                 row_cells[j].vertical_alignment = va
 
                 if col == excerpt_col:

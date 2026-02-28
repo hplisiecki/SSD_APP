@@ -1,11 +1,50 @@
 """SSD analysis runner thread."""
 
 import copy
+import os
+import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import QThread, Signal
+
+
+def _ensure_streams() -> None:
+    """In windowed PyInstaller exes sys.stdout/stderr are None, which breaks tqdm.
+    Redirect them to a no-op stream so any library that writes to them won't crash."""
+    import io
+    if sys.stdout is None:
+        sys.stdout = io.StringIO()
+    if sys.stderr is None:
+        sys.stderr = io.StringIO()
+
+
+def _debug_log(msg: str) -> None:
+    """Write a message to both stderr (Python run) and the SSD debug log file (frozen exe)."""
+    # Console — works in Python, silently fails in windowed exe
+    try:
+        print(msg, file=sys.stderr)
+    except Exception:
+        pass
+
+    # File — always works
+    try:
+        if sys.platform == "win32":
+            local = os.environ.get("LOCALAPPDATA", "")
+            base = Path(local) / "SSD" if local else Path.home() / "AppData" / "Local" / "SSD"
+        elif sys.platform == "darwin":
+            base = Path.home() / "Library" / "Application Support" / "SSD"
+        else:
+            base = Path.home() / ".local" / "share" / "SSD"
+        base.mkdir(parents=True, exist_ok=True)
+        log_path = base / "debug.log"
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"[{ts}] {msg}\n")
+    except Exception:
+        pass
 
 from ..models.project import (
     Project,
@@ -79,6 +118,7 @@ class SSDRunner(QThread):
 
     def _run_continuous(self, run: Run):
         """Execute the continuous SSD analysis pipeline."""
+        _ensure_streams()
         from ssdiff import SSD, pca_sweep
 
         self.progress.emit(5, "Loading cached data...")
@@ -112,7 +152,7 @@ class SSDRunner(QThread):
                 )
                 cov_per_token = cov_per_token_df.to_dict("records")
             except Exception as e:
-                print(f"Lexicon coverage computation failed: {e}")
+                _debug_log(f"[continuous] Lexicon coverage failed: {e}\n{traceback.format_exc()}")
 
         if self._is_cancelled:
             return
@@ -220,7 +260,7 @@ class SSDRunner(QThread):
             results.clusters_summary = df_clusters.to_dict("records")
             results.clusters_members = df_members.to_dict("records")
         except Exception as e:
-            print(f"Clustering failed: {e}")
+            _debug_log(f"[continuous] Clustering failed: {e}\n{traceback.format_exc()}")
 
         if self._is_cancelled:
             return
@@ -237,7 +277,7 @@ class SSDRunner(QThread):
                 results.cluster_snippets_pos = cluster_snips["pos"].to_dict("records")
                 results.cluster_snippets_neg = cluster_snips["neg"].to_dict("records")
             except Exception as e:
-                print(f"Cluster snippets failed: {e}")
+                _debug_log(f"[continuous] Cluster snippets failed: {e}\n{traceback.format_exc()}")
 
             try:
                 beta_snips = ssd.beta_snippets(
@@ -248,7 +288,7 @@ class SSDRunner(QThread):
                 results.beta_snippets_pos = beta_snips["beta_pos"].to_dict("records")
                 results.beta_snippets_neg = beta_snips["beta_neg"].to_dict("records")
             except Exception as e:
-                print(f"Beta snippets failed: {e}")
+                _debug_log(f"[continuous] Beta snippets failed: {e}\n{traceback.format_exc()}")
 
         if self._is_cancelled:
             return
@@ -259,7 +299,7 @@ class SSDRunner(QThread):
             scores_df = ssd.ssd_scores(include_all=True)
             results.doc_scores = scores_df.to_dict("records")
         except Exception as e:
-            print(f"Document scores failed: {e}")
+            _debug_log(f"[continuous] Document scores failed: {e}\n{traceback.format_exc()}")
 
         # Finalize run
         run.results = results
@@ -279,6 +319,7 @@ class SSDRunner(QThread):
 
     def _run_crossgroup(self, run: Run):
         """Execute the crossgroup SSD analysis pipeline."""
+        _ensure_streams()
         from ssdiff import SSDGroup
 
         self.progress.emit(5, "Loading cached data...")
@@ -314,7 +355,7 @@ class SSDRunner(QThread):
                 )
                 cov_per_token = cov_per_token_df.to_dict("records")
             except Exception as e:
-                print(f"Lexicon coverage computation failed: {e}")
+                _debug_log(f"[crossgroup] Lexicon coverage failed: {e}\n{traceback.format_exc()}")
 
         if self._is_cancelled:
             return
@@ -412,7 +453,7 @@ class SSDRunner(QThread):
                     top_words_df["side"] == "neg"
                 ].to_dict("records")
             except Exception as e:
-                print(f"Top words failed for {pair_key}: {e}")
+                _debug_log(f"[crossgroup] Top words failed for {pair_key}: {e}\n{traceback.format_exc()}")
                 cr["pos_neighbors"] = []
                 cr["neg_neighbors"] = []
 
@@ -430,7 +471,7 @@ class SSDRunner(QThread):
                 cr["clusters_summary"] = df_clusters.to_dict("records")
                 cr["clusters_members"] = df_members.to_dict("records")
             except Exception as e:
-                print(f"Clustering failed for {pair_key}: {e}")
+                _debug_log(f"[crossgroup] Clustering failed for {pair_key}: {e}\n{traceback.format_exc()}")
                 cr["clusters_summary"] = []
                 cr["clusters_members"] = []
 
@@ -445,7 +486,7 @@ class SSDRunner(QThread):
                     cr["cluster_snippets_pos"] = cluster_snips["pos"].to_dict("records")
                     cr["cluster_snippets_neg"] = cluster_snips["neg"].to_dict("records")
                 except Exception as e:
-                    print(f"Cluster snippets failed for {pair_key}: {e}")
+                    _debug_log(f"[crossgroup] Cluster snippets failed for {pair_key}: {e}\n{traceback.format_exc()}")
                     cr["cluster_snippets_pos"] = []
                     cr["cluster_snippets_neg"] = []
 
@@ -457,7 +498,7 @@ class SSDRunner(QThread):
                     cr["beta_snippets_pos"] = beta_snips["beta_pos"].to_dict("records")
                     cr["beta_snippets_neg"] = beta_snips["beta_neg"].to_dict("records")
                 except Exception as e:
-                    print(f"Beta snippets failed for {pair_key}: {e}")
+                    _debug_log(f"[crossgroup] Beta snippets failed for {pair_key}: {e}\n{traceback.format_exc()}")
                     cr["beta_snippets_pos"] = []
                     cr["beta_snippets_neg"] = []
 
@@ -466,7 +507,7 @@ class SSDRunner(QThread):
                 scores_df = sg.contrast_scores(g1, g2)
                 cr["contrast_scores"] = scores_df.to_dict("records")
             except Exception as e:
-                print(f"Contrast scores failed for {pair_key}: {e}")
+                _debug_log(f"[crossgroup] Contrast scores failed for {pair_key}: {e}\n{traceback.format_exc()}")
                 cr["contrast_scores"] = []
 
             contrast_results[pair_key] = cr

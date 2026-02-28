@@ -35,6 +35,7 @@ from ..models.project import Project, Run
 from ..controllers.export_controller import ExportController
 from .widgets.loading_overlay import LoadingOverlay
 from .widgets.info_button import InfoButton
+from .widgets.removable_delegate import RemovableItemDelegate
 
 
 class Stage3Widget(QWidget):
@@ -87,6 +88,13 @@ class Stage3Widget(QWidget):
         self.run_selector = QComboBox()
         self.run_selector.setMinimumWidth(200)
         self.run_selector.currentIndexChanged.connect(self._on_run_selected)
+        self._run_delegate = RemovableItemDelegate(
+            self.run_selector,
+            self._delete_run_by_index,
+            is_removable=lambda row: self.run_selector.itemData(row) is not self._unsaved_run,
+            parent=self.run_selector,
+        )
+        self.run_selector.setItemDelegate(self._run_delegate)
         header_layout.addWidget(self.run_selector)
 
         # Separator + name field + save button (visible for unsaved runs)
@@ -731,6 +739,12 @@ class Stage3Widget(QWidget):
         actions_layout.addWidget(new_run_btn)
 
         actions_layout.addStretch()
+
+        export_options_btn = QPushButton("Export Options")
+        export_options_btn.setObjectName("btn_ghost")
+        export_options_btn.setCursor(Qt.PointingHandCursor)
+        export_options_btn.clicked.connect(self._open_export_options)
+        actions_layout.addWidget(export_options_btn)
 
         self.export_btn = QPushButton("Export All Results...")
         self.export_btn.setMinimumHeight(44)
@@ -1748,6 +1762,16 @@ class Stage3Widget(QWidget):
             f'<tr><td style="{label_style}">Mode</td>'
             f'<td style="{value_style}">{"Full Document" if is_fulldoc else "Lexicon"}</td></tr>'
         )
+        if is_crossgroup and run.concept_config.group_column:
+            run_html.append(
+                f'<tr><td style="{label_style}">Group Column</td>'
+                f'<td style="{value_style}">{run.concept_config.group_column}</td></tr>'
+            )
+        elif not is_crossgroup and run.concept_config.outcome_column:
+            run_html.append(
+                f'<tr><td style="{label_style}">Outcome Column</td>'
+                f'<td style="{value_style}">{run.concept_config.outcome_column}</td></tr>'
+            )
 
         run_html.append("</table>")
 
@@ -2306,6 +2330,12 @@ class Stage3Widget(QWidget):
         """Request a new analysis run."""
         self.new_run_requested.emit()
 
+    def _open_export_options(self):
+        """Open the Export Options configuration dialog."""
+        from .export_options_dialog import ExportOptionsDialog
+        dlg = ExportOptionsDialog(self)
+        dlg.exec()
+
     def _export_all(self):
         """Export all results."""
         if not self.current_run or not self.project:
@@ -2388,3 +2418,36 @@ class Stage3Widget(QWidget):
                 break
 
         self.run_saved.emit()
+
+    def _delete_run_by_index(self, row: int):
+        """Delete a saved run after confirmation."""
+        run = self.run_selector.itemData(row)
+        if run is None or run is self._unsaved_run:
+            return
+
+        self.run_selector.hidePopup()
+
+        display_name = run.name or run.run_id
+        reply = QMessageBox.question(
+            self,
+            "Delete Run",
+            f"Permanently delete \"{display_name}\"?\n\n"
+            "All results will be removed and this cannot be undone.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        if self.project and run in self.project.runs:
+            self.project.runs.remove(run)
+
+        import shutil
+        if run.run_path.exists():
+            shutil.rmtree(run.run_path)
+
+        from ..utils.file_io import ProjectIO
+        if self.project:
+            ProjectIO.save_project(self.project)
+
+        self._populate_run_selector()

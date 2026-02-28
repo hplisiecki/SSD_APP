@@ -41,7 +41,8 @@ class _ThemeCard(QFrame):
         self._dialog = parent
         self._selected = False
 
-        self.setFixedSize(130, 110)
+        self.setFixedHeight(110)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.setCursor(Qt.PointingHandCursor)
 
         layout = QVBoxLayout(self)
@@ -129,19 +130,22 @@ class AppearanceDialog(QDialog):
         # --- Theme presets ---
         theme_group = QGroupBox("Theme")
         theme_layout = QVBoxLayout()
-
-        cards_layout = QHBoxLayout()
-        cards_layout.setSpacing(10)
+        theme_layout.setSpacing(8)
 
         self._cards: dict[str, _ThemeCard] = {}
-        for name, palette in THEME_PRESETS.items():
-            card = _ThemeCard(name, palette, self)
-            card.set_selected(name == self._selected_theme)
-            self._cards[name] = card
-            cards_layout.addWidget(card)
-        cards_layout.addStretch()
+        presets = list(THEME_PRESETS.items())
+        mid = (len(presets) + 1) // 2  # ceiling split → row 1 is never shorter
 
-        theme_layout.addLayout(cards_layout)
+        for row_items in (presets[:mid], presets[mid:]):
+            row = QHBoxLayout()
+            row.setSpacing(10)
+            for name, palette in row_items:
+                card = _ThemeCard(name, palette, self)
+                card.set_selected(name == self._selected_theme)
+                self._cards[name] = card
+                row.addWidget(card)
+            theme_layout.addLayout(row)
+
         theme_group.setLayout(theme_layout)
         layout.addWidget(theme_group)
 

@@ -33,6 +33,18 @@ spaCy language models are downloaded automatically on first use.
 
 ---
 
+## What's New in v1.1.0
+
+> **Already have v1.0.0?** Starting from this release, SSD will automatically notify you when a new version is available — but since v1.0.0 didn't have that feature yet, you'll need to download v1.1.0 manually once. After that, the app will alert you in-app whenever a newer release is out.
+
+- **Automatic update notifications** — on startup the app silently checks GitHub for a newer release and shows a dismissible banner with a direct download link
+- **Export options** — configure which columns appear in exported Word tables (cluster, regression, and pairwise tables) and how many top words are shown per cluster
+- **Delete saved runs** — remove archived runs from the run selector with a confirmation prompt
+- **New appearance themes** — two new light-mode themes (Crisp and Warm) for users who prefer lower-saturation palettes
+- **Outcome/Group column shown in run details** — the Config tab now displays which outcome or group column was used for a run
+
+---
+
 ## Supported Languages
 
 SSD supports 23 languages via spaCy models (small, medium, and large variants available for each):
@@ -92,10 +104,11 @@ SSD requires pre-trained word embeddings, which are **not bundled** with the app
 - **Automated PCA sweep** — elbow detection for optimal dimensionality, with manual override
 - **Cluster interpretation** — K-means clustering of pole neighbors with coherence scores and representative snippets
 - **Snippet browser** — real sentences from the data, organized by cluster or beta alignment, with full document context
-- **APA-formatted export** — regression tables, pairwise comparisons, and cluster summaries as Word documents
+- **APA-formatted export** — regression tables, pairwise comparisons, and cluster summaries as Word documents, with configurable column selection
 - **Comprehensive export** — CSV scores, pole neighbors, PCA plots, configuration JSON, and a human-readable hyperparameters file
-- **Project system** — save and reload analyses; run multiple analyses with different lexicons or settings
-- **Customizable appearance** — multiple color themes and font size scaling
+- **Project system** — save, reload, and delete analyses; run multiple analyses with different lexicons or settings
+- **Automatic update notifications** — silent startup check against GitHub releases with a dismissible in-app banner
+- **Customizable appearance** — multiple color themes (including light-mode options) and font size scaling
 - **In-app tutorial** — navigable guide with table of contents
 
 ---
