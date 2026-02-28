@@ -167,7 +167,7 @@ a = Analysis(
     ],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['rthooks/rthook_openblas.py'] if sys.platform == 'darwin' else [],
     excludes=[
         # Exclude unnecessary packages to reduce size
         'tkinter',
