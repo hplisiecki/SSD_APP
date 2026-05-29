@@ -99,7 +99,7 @@ class Result:
                 f'emb = Embeddings.load("{s.get("selected_embedding", "embeddings.ssdembed")}", '
                 'ram_efficient=True)'
             )
-            lines.append("emb.attach_corpus(corpus)")
+            lines.append("emb = emb.with_corpus(corpus)")
         else:
             lines.append(
                 f'emb = Embeddings.load("{s.get("selected_embedding", "embeddings.ssdembed")}")'

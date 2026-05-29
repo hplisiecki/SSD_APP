@@ -362,7 +362,7 @@ class EmbeddingLoadWorker(QThread):
             if ram_mode:
                 emb = Embeddings.load(str(self.ssdembed_path), ram_efficient=True)
                 self.progress.emit(50, "Materialising corpus tokens...")
-                emb.attach_corpus(self.corpus)
+                emb = emb.with_corpus(self.corpus)
             else:
                 emb = Embeddings.load(str(self.ssdembed_path))
 
