@@ -47,6 +47,9 @@ if sys.platform == 'linux':
 # Collect data files for NLP packages that ship dictionaries/lookup tables
 nlp_datas = []
 nlp_datas += collect_data_files('spacy_lookups_data')
+# ssdiff ships non-py data files (e.g. utils/polish_stopwords.txt, py.typed)
+# that hiddenimports alone won't bundle.
+nlp_datas += collect_data_files('ssdiff')
 
 # Icon: .ico on Windows, .icns on macOS, None on Linux
 if sys.platform == 'win32':
@@ -71,7 +74,7 @@ a = Analysis(
         ('ssdiff_gui/resources', 'resources'),
     ] + nlp_datas,
     hiddenimports=[
-        # Core packages — ssdiff v1.0.0 module structure
+        # Core packages — ssdiff v3.0.0 module structure
         'ssdiff',
         'ssdiff.ssd',
         'ssdiff.corpus',

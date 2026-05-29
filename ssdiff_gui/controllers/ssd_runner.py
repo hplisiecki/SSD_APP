@@ -1,4 +1,4 @@
-"""SSD analysis runner thread — uses ssdiff v1.0.0 API."""
+"""SSD analysis runner thread — uses ssdiff v3.0.0 API."""
 
 import sys
 import traceback

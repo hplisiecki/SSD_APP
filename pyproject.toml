@@ -15,7 +15,7 @@ authors = [
 ]
 
 dependencies = [
-    "ssdiff @ git+https://github.com/hplisiecki/Supervised-Semantic-Differential.git@dev",
+    "ssdiff>=3.0.0",
     "PySide6-Essentials>=6.6.0",
     "pandas>=2.0.0",
     "numpy>=1.26.4",
