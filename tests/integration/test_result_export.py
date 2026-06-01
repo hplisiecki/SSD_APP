@@ -73,7 +73,7 @@ def test_default_config_writes_only_pkl_script_and_report(
     result = _wrap(tmp_path / "r", _make_pls(tiny_embeddings, synthetic_corpus))
     export_result(result, result.result_path, SaveConfig.default())
 
-    expected = {"results.pkl", "replication_script.py", "report.md"}
+    expected = {"results.pkl", "corpus.pkl", "replication_script.py", "report.md"}
     assert {p.name for p in result.result_path.iterdir()} == expected
 
 
@@ -257,3 +257,98 @@ def test_words_k_limits_rows(tmp_path, tiny_embeddings, synthetic_corpus):
     with open(result.result_path / "tables" / "words.csv", newline="") as f:
         rows = [r for r in _csv.reader(f) if r]
     assert len(rows) == 4
+
+
+# --------------------------------------------------------------------------- #
+#  Per-result corpus snapshots (2026-06-01)
+# --------------------------------------------------------------------------- #
+
+def test_corpus_frozen_per_result_and_absent_from_results_pkl(
+    tmp_path, tiny_embeddings, synthetic_corpus,
+):
+    """Freeze-on-save: the run's corpus is written to the result's own
+    corpus.pkl, and its content does not leak into results.pkl."""
+    from ssdiff_gui.utils.result_export import export_result
+    from ssdiff_gui.utils.save_config import SaveConfig
+
+    ssd_result = _make_pls(tiny_embeddings, synthetic_corpus)
+    # Sentinel: a recognizable byte string carried only by the corpus, so we
+    # can grep the raw pickles to prove where it does (not) end up.
+    sentinel = "ZQ_CORPUS_SENTINEL_7f3a91"
+    ssd_result.corpus.__dict__[sentinel] = sentinel
+    try:
+        result = _wrap(tmp_path / "r", ssd_result)
+        export_result(result, result.result_path, SaveConfig.default())
+
+        corpus_pkl = result.result_path / "corpus.pkl"
+        results_pkl = result.result_path / "results.pkl"
+        assert corpus_pkl.exists()
+        assert sentinel.encode() in corpus_pkl.read_bytes()
+        assert sentinel.encode() not in results_pkl.read_bytes()
+    finally:
+        ssd_result.corpus.__dict__.pop(sentinel, None)
+
+
+def test_corpus_snapshot_is_write_once(tmp_path, tiny_embeddings, synthetic_corpus):
+    """A re-export with a drifted live corpus must not overwrite the frozen
+    snapshot from the first save."""
+    from ssdiff import Corpus
+    from ssdiff_gui.utils.result_export import export_result
+    from ssdiff_gui.utils.save_config import SaveConfig
+
+    ssd_result = _make_pls(tiny_embeddings, synthetic_corpus)
+    result = _wrap(tmp_path / "r", ssd_result)
+    export_result(result, result.result_path, SaveConfig.default())
+
+    corpus_pkl = result.result_path / "corpus.pkl"
+    first_bytes = corpus_pkl.read_bytes()
+
+    # Drift: the live result is re-bound to a different corpus and re-exported.
+    ssd_result.corpus = Corpus([["different", "tokens"]], pretokenized=True, lang="en")
+    export_result(result, result.result_path, SaveConfig.default())
+
+    assert corpus_pkl.read_bytes() == first_bytes
+
+
+def test_load_result_corpus_returns_own_snapshot_not_project_corpus(
+    tmp_path, tiny_embeddings, synthetic_corpus,
+):
+    """Drift regression: load_result_corpus returns the result's own corpus X
+    even when the project corpus has been replaced by a different corpus Y."""
+    from datetime import datetime as _dt
+    from ssdiff import Corpus
+    from ssdiff_gui.models.project import Project
+    from ssdiff_gui.utils.file_io import ProjectIO
+    from ssdiff_gui.utils.result_export import export_result
+    from ssdiff_gui.utils.save_config import SaveConfig
+
+    project = Project(
+        project_path=tmp_path / "proj", name="p",
+        created_date=_dt(2026, 1, 1), modified_date=_dt(2026, 1, 1),
+    )
+    ProjectIO.create_project_structure(project.project_path)
+
+    # Result freezes corpus X (the synthetic corpus it ran on).
+    result = _wrap(
+        project.project_path / "results" / "r",
+        _make_pls(tiny_embeddings, synthetic_corpus),
+    )
+    export_result(result, result.result_path, SaveConfig.default())
+
+    # Project corpus drifts to a different corpus Y.
+    corpus_y = Corpus([["different", "tokens"]], pretokenized=True, lang="en")
+    ProjectIO.save_corpus(project, corpus_y)
+
+    own = ProjectIO.load_result_corpus(result.result_path)
+    assert own is not None
+    assert list(own.docs) == list(synthetic_corpus.docs)        # X, not Y
+    assert list(ProjectIO.load_corpus(project).docs) == [["different", "tokens"]]
+
+
+def test_load_result_corpus_none_for_falsy_or_absent(tmp_path):
+    """Legacy fallback path: no snapshot → None, so the view falls back to the
+    project corpus."""
+    from ssdiff_gui.utils.file_io import ProjectIO
+
+    assert ProjectIO.load_result_corpus(None) is None
+    assert ProjectIO.load_result_corpus(tmp_path / "no_such_result") is None

@@ -27,15 +27,27 @@ class _NumpyEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-def _strip_embeddings(result_obj) -> None:
-    """Detach the Embeddings reference from a deserialized ssdiff result.
+def _detach_shared_data(result_obj) -> None:
+    """Detach shared Embeddings/Corpus references from a deserialized result.
 
-    Results are saved with embeddings nulled out; this defensively clears
-    the field again on load so the project's shared Embeddings can be
-    re-attached on demand.
+    Results are saved with embeddings and corpus nulled out; this defensively
+    clears them again on load so the project's shared Embeddings and Corpus
+    can be re-attached on demand.
     """
-    if result_obj is not None and hasattr(result_obj, "embeddings"):
+    if result_obj is None:
+        return
+    if hasattr(result_obj, "embeddings"):
         result_obj.embeddings = None
+    if hasattr(result_obj, "corpus"):
+        result_obj.corpus = None
+
+
+def _load_corpus_file(corpus_file: Path):
+    """Load a pickled Corpus from a path, or None if the file doesn't exist."""
+    if not corpus_file.exists():
+        return None
+    with open(corpus_file, "rb") as f:
+        return pickle.load(f)
 
 
 class ProjectIO:
@@ -182,7 +194,7 @@ class ProjectIO:
 
         with open(results_pkl, "rb") as f:
             result._result = pickle.load(f)
-        _strip_embeddings(result._result)
+        _detach_shared_data(result._result)
         return result
 
     @staticmethod
@@ -236,7 +248,7 @@ class ProjectIO:
             else:
                 with open(results_pkl, "rb") as f:
                     result._result = pickle.load(f)
-                _strip_embeddings(result._result)
+                _detach_shared_data(result._result)
 
         return result
 
@@ -262,15 +274,22 @@ class ProjectIO:
 
     @staticmethod
     def load_corpus(project: Project):
-        """Load a library Corpus from corpus.pkl.
+        """Load the project's working Corpus from data/corpus.pkl.
 
         Returns the Corpus object, or None if the file doesn't exist.
         """
-        corpus_file = project.project_path / "data" / "corpus.pkl"
-        if not corpus_file.exists():
+        return _load_corpus_file(project.project_path / "data" / "corpus.pkl")
+
+    @staticmethod
+    def load_result_corpus(result_path):
+        """Load a result's own frozen corpus snapshot from result_path/corpus.pkl.
+
+        Returns the Corpus object, or None if result_path is falsy or the
+        snapshot is absent (results saved before per-result snapshots existed).
+        """
+        if not result_path:
             return None
-        with open(corpus_file, "rb") as f:
-            return pickle.load(f)
+        return _load_corpus_file(Path(result_path) / "corpus.pkl")
 
     @staticmethod
     def corpus_exists(project: Project) -> bool:

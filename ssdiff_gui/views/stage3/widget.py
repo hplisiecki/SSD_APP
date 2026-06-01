@@ -622,9 +622,18 @@ class Stage3Widget(QWidget):
             ssd_result, current_pair=initial_pair, current_leaf=initial_leaf, meta=result,
         )
 
-        # Re-attach shared project embeddings if missing (stripped during save)
+        # Re-attach shared project embeddings if missing (stripped during save).
         if getattr(ssd_result, "embeddings", None) is None and self.project._emb is not None:
             ssd_result.embeddings = self.project._emb
+        # Corpus is per-result: load this result's own frozen snapshot, falling
+        # back to the project corpus only for legacy results saved without one.
+        if getattr(ssd_result, "corpus", None) is None:
+            from ...utils.file_io import ProjectIO
+            corpus = ProjectIO.load_result_corpus(result.result_path)
+            if corpus is None:
+                corpus = self.project._corpus
+            if corpus is not None:
+                ssd_result.corpus = corpus
 
         is_crossgroup = isinstance(ssd_result, GroupResult)
         is_pca_ols = isinstance(ssd_result, PCAOLSResult)

@@ -85,9 +85,9 @@ class PcaSweepTab:
         result = self._get_current_result()
         ssd_result = view.source
 
-        selected_k = ssd_result.n_components if isinstance(ssd_result, PCAOLSResult) else None
-        if selected_k is not None:
-            self._info.setText(f"Selected PCA K: {selected_k}")
+        sweep = ssd_result.sweep_result if isinstance(ssd_result, PCAOLSResult) else None
+        if sweep is not None:
+            self._info.setText(f"Selected PCA K: {sweep.best_k}")
         else:
             self._info.setText("PCA K was set manually (no sweep performed).")
 

@@ -426,6 +426,11 @@ class MainWindow(QMainWindow):
         self.stage2_widget.run_requested.connect(self._on_run_requested)
         self.stage_stack.addWidget(self.stage2_widget)
 
+        # Embeddings can finish loading on a background thread after project
+        # open — refresh the embedding-dependent UI in Stage 2 and the nav bar.
+        self.stage1_widget.embeddings_loaded.connect(self.stage2_widget._update_run_button)
+        self.stage1_widget.embeddings_loaded.connect(self._update_stage_actions)
+
         # Stage 3
         self.stage3_widget = Stage3Widget()
         self.stage3_widget.new_run_requested.connect(self._on_new_run_requested)

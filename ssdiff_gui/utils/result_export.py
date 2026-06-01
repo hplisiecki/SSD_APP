@@ -51,13 +51,26 @@ def _write_pickle(result, result_path: Path) -> None:
     if result._result is None:
         return
     ssd_result = result._result
+    # Embeddings and corpus are shared project data, not result state: strip
+    # them so the pickle stays light and they are re-attached on open.
     saved_emb = getattr(ssd_result, "embeddings", None)
+    saved_corpus = getattr(ssd_result, "corpus", None)
+    # Freeze the corpus this run used as a per-result snapshot, write-once: the
+    # first save captures it; later re-exports must not overwrite it with the
+    # mutable project corpus, which may have drifted to different data. Results
+    # re-attach their own snapshot on open, never the project corpus.
+    corpus_pkl = result_path / "corpus.pkl"
+    if saved_corpus is not None and not corpus_pkl.exists():
+        with open(corpus_pkl, "wb") as f:
+            pickle.dump(saved_corpus, f, protocol=pickle.HIGHEST_PROTOCOL)
     ssd_result.embeddings = None
+    ssd_result.corpus = None
     try:
         with open(result_path / "results.pkl", "wb") as f:
             pickle.dump(ssd_result, f, protocol=pickle.HIGHEST_PROTOCOL)
     finally:
         ssd_result.embeddings = saved_emb
+        ssd_result.corpus = saved_corpus
 
 
 def _write_replication_script(result, result_path: Path) -> None:

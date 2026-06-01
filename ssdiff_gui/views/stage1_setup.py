@@ -41,6 +41,7 @@ class Stage1Widget(OverlayInfoMixin, QWidget):
     """Stage 1: Setup - Dataset, spaCy, Embeddings, Hyperparameters."""
 
     stage_complete = Signal()
+    embeddings_loaded = Signal()
 
     _info_margin_right = 6
     _info_margin_top = 20
@@ -1208,6 +1209,10 @@ class Stage1Widget(OverlayInfoMixin, QWidget):
 
         if getattr(self, "_autoloading_embedding", False):
             self._autoloading_embedding = False
+
+        # Embeddings finished loading (possibly on a background thread after
+        # project open) — let other stages refresh state that depends on them.
+        self.embeddings_loaded.emit()
 
     def _delete_embedding(self):
         """Delete a prepared embedding from the project."""
