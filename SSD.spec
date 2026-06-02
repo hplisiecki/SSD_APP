@@ -50,6 +50,9 @@ nlp_datas += collect_data_files('spacy_lookups_data')
 # ssdiff ships non-py data files (e.g. utils/polish_stopwords.txt, py.typed)
 # that hiddenimports alone won't bundle.
 nlp_datas += collect_data_files('ssdiff')
+# python-docx's Document() reads docx/templates/default.docx + XML parts;
+# the hiddenimport alone bundles the modules but not these template files.
+nlp_datas += collect_data_files('docx')
 
 # Icon: .ico on Windows, .icns on macOS, None on Linux
 if sys.platform == 'win32':
@@ -105,6 +108,11 @@ a = Analysis(
         'pandas',
         'numpy',
         'numpy.core._methods',
+        # TEMP stopgap: bundles numpy's deprecated numpy.core stub so frozen
+        # builds can load legacy .kv/.ssdembed pickles (pre-numpy-2.0 path).
+        # Remove once SSD_APP builds against ssdiff >= 3.0.1 (which fixes the
+        # numpy.core -> numpy._core redirect in _GensimUnpickler.find_class).
+        'numpy.core.multiarray',
         'numpy.linalg',
 
         # NLP
@@ -120,6 +128,9 @@ a = Analysis(
         'openpyxl.styles',
         'openpyxl.utils',
         'et_xmlfile',
+        # docx report/table export — ssdiff imports it dynamically via
+        # _require("docx"), which PyInstaller's static analysis can't detect.
+        'docx',
 
         # Threading
         'concurrent.futures',
